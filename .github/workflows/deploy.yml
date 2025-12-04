@@ -19,7 +19,7 @@ jobs:
     - name: Deploy Backend Container
       uses: azure/aci-deploy@v1
       with:
-        resource-group: YOUR_RG_NAME
+        resource-group: Student-RG-1902327
         name: cloudmart-backend
         image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudmart-backend:latest
         dns-name-label: cloudmart-backend-1902327
@@ -31,7 +31,7 @@ jobs:
     - name: Deploy Frontend Container
       uses: azure/aci-deploy@v1
       with:
-        resource-group: YOUR_RG_NAME
+        resource-group: Student-RG-1902327
         name: cloudmart-frontend
         image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudmart-frontend:latest
         dns-name-label: cloudmart-frontend-1902327
