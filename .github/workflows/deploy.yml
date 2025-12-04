@@ -1,40 +1,61 @@
-name: CD Deploy to Azure
+name: CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    - name: Login to Azure
-      uses: azure/login@v1
+    - name: Azure Login
+      uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy Backend Container
-      uses: azure/aci-deploy@v1
-      with:
-        resource-group: Student-RG-1902327
-        name: cloudmart-backend
-        image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudmart-backend:latest
-        dns-name-label: cloudmart-backend-1902327
-        ports: 8000
-        environment-variables: |
-          COSMOS_ENDPOINT=${{ secrets.COSMOS_ENDPOINT }}
-          COSMOS_KEY=${{ secrets.COSMOS_KEY }}
+    - name: Build Backend Image
+      run: |
+        docker build -t cloudmart-backend:latest ./applications/backend
+        docker tag cloudmart-backend:latest dtlnguyen/cloudmart-backend:latest
 
-    - name: Deploy Frontend Container
-      uses: azure/aci-deploy@v1
+    - name: Build Frontend Image
+      run: |
+        docker build -t cloudmart-frontend:latest ./applications/frontend
+        docker tag cloudmart-frontend:latest dtlnguyen/cloudmart-frontend:latest
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
       with:
-        resource-group: Student-RG-1902327
-        name: cloudmart-frontend
-        image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudmart-frontend:latest
-        dns-name-label: cloudmart-frontend-1902327
-        ports: 5173
-        environment-variables: |
-          VITE_API_URL=https://cloudmart-backend-1902327.canadacentral.azurecontainer.io
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Push Images
+      run: |
+        docker push dtlnguyen/cloudmart-backend:latest
+        docker push dtlnguyen/cloudmart-frontend:latest
+
+    - name: Deploy Backend to ACI
+      run: |
+        az container create \
+          --resource-group Student-RG-1902327 \
+          --name cloudmart-backend \
+          --image dtlnguyen/cloudmart-backend:latest \
+          --ports 8000 \
+          --restart-policy Always \
+          --environment-variables COSMOS_ENDPOINT=${{ secrets.COSMOS_ENDPOINT }} COSMOS_KEY=${{ secrets.COSMOS_KEY }} \
+          --query "provisioningState"
+
+    - name: Deploy Frontend to ACI
+      run: |
+        az container create \
+          --resource-group Student-RG-1902327 \
+          --name cloudmart-frontend \
+          --image dtlnguyen/cloudmart-frontend:latest \
+          --ports 80 \
+          --restart-policy Always \
+          --environment-variables VITE_BACKEND_URL="http://cloudmart-backend:8000"
